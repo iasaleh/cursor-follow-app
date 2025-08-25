@@ -1,55 +1,15 @@
-<?php
-// Set content type to HTML
-header('Content-Type: text/html');
-
-// Configuration options (could be loaded from a database or config file)
-$snakeConfig = [
-    'segmentCount' => 20,
-    'followSpeed' => 0.1,
-    'segmentSpacing' => 15,
-    'snakeColor' => 'green',
-    'headColor' => 'darkgreen'
-];
-
-// You could add PHP logic here to customize the snake based on user preferences,
-// database settings, time of day, etc.
-$currentHour = date('G');
-if ($currentHour >= 18 || $currentHour < 6) {
-    // Night mode - darker snake
-    $snakeConfig['snakeColor'] = '#005000';
-    $snakeConfig['headColor'] = '#003000';
-    $pageBackground = '#202020';
-} else {
-    // Day mode - regular colors
-    $pageBackground = '#f0f0f0';
-}
-
-// Optional: Track user visits
-session_start();
-if (!isset($_SESSION['visit_count'])) {
-    $_SESSION['visit_count'] = 1;
-} else {
-    $_SESSION['visit_count']++;
-}
-
-// Generate a page title
-$pageTitle = "Snake Cursor Follower";
-if (isset($_SESSION['visit_count']) && $_SESSION['visit_count'] > 1) {
-    $pageTitle .= " (Visit #" . $_SESSION['visit_count'] . ")";
-}
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($pageTitle); ?></title>
+    <title>Snake Follows Cursor</title>
     <style>
         body {
             margin: 0;
             padding: 0;
             overflow: hidden;
-            background-color: <?php echo $pageBackground; ?>;
+            background-color: #f0f0f0;
             font-family: Arial, sans-serif;
             cursor: none; /* Hide the default cursor */
         }
@@ -59,13 +19,13 @@ if (isset($_SESSION['visit_count']) && $_SESSION['visit_count'] > 1) {
             width: 20px;
             height: 20px;
             border-radius: 50%;
-            background-color: <?php echo $snakeConfig['snakeColor']; ?>;
+            background-color: green;
             transform: translate(-50%, -50%);
             transition: box-shadow 0.3s ease;
         }
         
         .snake-head {
-            background-color: <?php echo $snakeConfig['headColor']; ?>;
+            background-color: darkgreen;
             z-index: 10;
             width: 25px;
             height: 25px;
@@ -107,51 +67,24 @@ if (isset($_SESSION['visit_count']) && $_SESSION['visit_count'] > 1) {
             text-align: center;
             font-size: 24px;
             font-weight: bold;
-            color: <?php echo $currentHour >= 18 || $currentHour < 6 ? '#f0f0f0' : '#333'; ?>;
+            color: #333;
             z-index: 100;
         }
-        
-        <?php if (isset($_GET['rainbow']) && $_GET['rainbow'] == 'true'): ?>
-        /* Optional rainbow mode activated via URL parameter */
-        @keyframes rainbow {
-            0% { background-color: red; }
-            15% { background-color: orange; }
-            30% { background-color: yellow; }
-            45% { background-color: green; }
-            60% { background-color: blue; }
-            75% { background-color: indigo; }
-            90% { background-color: violet; }
-            100% { background-color: red; }
-        }
-        
-        .snake-segment:not(.snake-head) {
-            animation: rainbow 10s linear infinite;
-            animation-delay: calc(var(--segment-index) * -0.5s);
-        }
-        <?php endif; ?>
     </style>
 </head>
 <body>
-    <div class="title"><?php echo htmlspecialchars($pageTitle); ?></div>
+    <div class="title">Snake Cursor Follower</div>
     <div class="instructions">
         Move your mouse around and watch the snake follow!
-        <?php if (isset($_SESSION['visit_count'])): ?>
-            <br>You've visited this page <?php echo $_SESSION['visit_count']; ?> time(s).
-        <?php endif; ?>
-        <?php if (!isset($_GET['rainbow'])): ?>
-            <br><a href="?rainbow=true">Enable Rainbow Mode</a>
-        <?php else: ?>
-            <br><a href="?">Disable Rainbow Mode</a>
-        <?php endif; ?>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Snake configuration from PHP
+            // Snake configuration
             const snakeConfig = {
-                segmentCount: <?php echo $snakeConfig['segmentCount']; ?>,
-                followSpeed: <?php echo $snakeConfig['followSpeed']; ?>,
-                segmentSpacing: <?php echo $snakeConfig['segmentSpacing']; ?>,
+                segmentCount: 20,        // Number of segments in the snake
+                followSpeed: 0.1,        // How quickly the snake follows (0-1, lower is slower)
+                segmentSpacing: 15,      // Distance between segments
                 initialX: window.innerWidth / 2,
                 initialY: window.innerHeight / 2
             };
@@ -172,7 +105,6 @@ if (isset($_SESSION['visit_count']) && $_SESSION['visit_count'] > 1) {
                 for (let i = 0; i < snakeConfig.segmentCount; i++) {
                     const segment = document.createElement('div');
                     segment.className = 'snake-segment';
-                    segment.style.setProperty('--segment-index', i);
                     
                     // The first segment is the head
                     if (i === 0) {
@@ -192,11 +124,9 @@ if (isset($_SESSION['visit_count']) && $_SESSION['visit_count'] > 1) {
                         segment.style.transform = `translate(-50%, -50%) scale(${scale})`;
                         segment.style.opacity = 1 - (i / (snakeConfig.segmentCount * 1.2));
                         
-                        <?php if (!isset($_GET['rainbow'])): ?>
-                        // Color gradient from green to lighter green (if not in rainbow mode)
+                        // Color gradient from green to lighter green
                         const greenValue = Math.min(50 + (i * 8), 200);
                         segment.style.backgroundColor = `rgb(0, ${greenValue}, 0)`;
-                        <?php endif; ?>
                     }
                     
                     // Position segment at the center initially
@@ -298,14 +228,6 @@ if (isset($_SESSION['visit_count']) && $_SESSION['visit_count'] > 1) {
                     mouseY = window.innerHeight / 2;
                 }
             });
-            
-            <?php if (isset($_GET['debug']) && $_GET['debug'] == 'true'): ?>
-            // Debug information
-            console.log('PHP Session ID: <?php echo session_id(); ?>');
-            console.log('Visit count: <?php echo isset($_SESSION['visit_count']) ? $_SESSION['visit_count'] : 0; ?>');
-            console.log('Current hour: <?php echo date('G'); ?>');
-            console.log('Snake config:', <?php echo json_encode($snakeConfig); ?>);
-            <?php endif; ?>
         });
     </script>
 </body>
