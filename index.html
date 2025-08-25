@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snake Follows Cursor</title>
+    <title>Snake Cursor Follower</title>
     <style>
         body {
             margin: 0;
@@ -12,6 +12,11 @@
             background-color: #f0f0f0;
             font-family: Arial, sans-serif;
             cursor: none; /* Hide the default cursor */
+            transition: background-color 1s ease;
+        }
+        
+        body.night-mode {
+            background-color: #202020;
         }
         
         .snake-segment {
@@ -24,11 +29,19 @@
             transition: box-shadow 0.3s ease;
         }
         
+        .night-mode .snake-segment {
+            background-color: #005000;
+        }
+        
         .snake-head {
-            background-color: darkgreen;
+            background-color: darkgreen !important;
             z-index: 10;
             width: 25px;
             height: 25px;
+        }
+        
+        .night-mode .snake-head {
+            background-color: #003000 !important;
         }
         
         .snake-eye {
@@ -69,30 +82,95 @@
             font-weight: bold;
             color: #333;
             z-index: 100;
+            transition: color 1s ease;
+        }
+        
+        .night-mode .title {
+            color: #f0f0f0;
+        }
+        
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+        
+        .btn {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        
+        .night-mode .btn {
+            background-color: #2d662f;
+        }
+        
+        /* Rainbow mode styles */
+        @keyframes rainbow {
+            0% { background-color: red; }
+            15% { background-color: orange; }
+            30% { background-color: yellow; }
+            45% { background-color: green; }
+            60% { background-color: blue; }
+            75% { background-color: indigo; }
+            90% { background-color: violet; }
+            100% { background-color: red; }
+        }
+        
+        .rainbow-mode .snake-segment:not(.snake-head) {
+            animation: rainbow 10s linear infinite;
+            animation-delay: calc(var(--segment-index) * -0.5s);
         }
     </style>
 </head>
 <body>
     <div class="title">Snake Cursor Follower</div>
+    
+    <div class="controls">
+        <button class="btn" id="toggleNightMode">Toggle Night Mode</button>
+        <button class="btn" id="toggleRainbow">Enable Rainbow Mode</button>
+        <button class="btn" id="increaseLength">Add Segments</button>
+        <button class="btn" id="decreaseLength">Remove Segments</button>
+    </div>
+    
     <div class="instructions">
-        Move your mouse around and watch the snake follow!
+        Move your mouse around and watch the snake follow!<br>
+        Use the buttons to customize your snake.
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Snake configuration
             const snakeConfig = {
-                segmentCount: 20,        // Number of segments in the snake
-                followSpeed: 0.1,        // How quickly the snake follows (0-1, lower is slower)
-                segmentSpacing: 15,      // Distance between segments
+                segmentCount: 20,
+                followSpeed: 0.1,
+                segmentSpacing: 15,
                 initialX: window.innerWidth / 2,
-                initialY: window.innerHeight / 2
+                initialY: window.innerHeight / 2,
+                maxSegments: 50,
+                minSegments: 5
             };
             
             // Snake state
             const snake = [];
             let mouseX = snakeConfig.initialX;
             let mouseY = snakeConfig.initialY;
+            let isRainbowMode = false;
+            
+            // Check if it's nighttime (between 6 PM and 6 AM)
+            const currentHour = new Date().getHours();
+            if (currentHour >= 18 || currentHour < 6) {
+                document.body.classList.add('night-mode');
+            }
             
             // Create snake segments
             function createSnake() {
@@ -103,38 +181,59 @@
                 
                 // Create each segment
                 for (let i = 0; i < snakeConfig.segmentCount; i++) {
-                    const segment = document.createElement('div');
-                    segment.className = 'snake-segment';
+                    createSegment(i, snakeContainer);
+                }
+            }
+            
+            // Create a single segment
+            function createSegment(index, container) {
+                const segment = document.createElement('div');
+                segment.className = 'snake-segment';
+                segment.style.setProperty('--segment-index', index);
+                
+                // The first segment is the head
+                if (index === 0) {
+                    segment.classList.add('snake-head');
                     
-                    // The first segment is the head
-                    if (i === 0) {
-                        segment.classList.add('snake-head');
-                        
-                        // Add eyes to the head
-                        const leftEye = document.createElement('div');
-                        leftEye.className = 'snake-eye left';
-                        segment.appendChild(leftEye);
-                        
-                        const rightEye = document.createElement('div');
-                        rightEye.className = 'snake-eye right';
-                        segment.appendChild(rightEye);
-                    } else {
-                        // Make segments smaller as they go toward the tail
-                        const scale = 1 - (i / (snakeConfig.segmentCount * 1.5));
-                        segment.style.transform = `translate(-50%, -50%) scale(${scale})`;
-                        segment.style.opacity = 1 - (i / (snakeConfig.segmentCount * 1.2));
-                        
-                        // Color gradient from green to lighter green
-                        const greenValue = Math.min(50 + (i * 8), 200);
+                    // Add eyes to the head
+                    const leftEye = document.createElement('div');
+                    leftEye.className = 'snake-eye left';
+                    segment.appendChild(leftEye);
+                    
+                    const rightEye = document.createElement('div');
+                    rightEye.className = 'snake-eye right';
+                    segment.appendChild(rightEye);
+                } else {
+                    // Make segments smaller as they go toward the tail
+                    const scale = 1 - (index / (snakeConfig.segmentCount * 1.5));
+                    segment.style.transform = `translate(-50%, -50%) scale(${scale})`;
+                    segment.style.opacity = 1 - (index / (snakeConfig.segmentCount * 1.2));
+                    
+                    // Color gradient from green to lighter green
+                    if (!isRainbowMode) {
+                        const greenValue = Math.min(50 + (index * 8), 200);
                         segment.style.backgroundColor = `rgb(0, ${greenValue}, 0)`;
                     }
-                    
-                    // Position segment at the center initially
-                    segment.style.left = `${snakeConfig.initialX}px`;
-                    segment.style.top = `${snakeConfig.initialY}px`;
-                    
-                    // Add to DOM and snake array
-                    snakeContainer.appendChild(segment);
+                }
+                
+                // Position segment at the center initially
+                segment.style.left = `${snakeConfig.initialX}px`;
+                segment.style.top = `${snakeConfig.initialY}px`;
+                
+                // Add to DOM and snake array
+                container.appendChild(segment);
+                
+                // If this is a new segment being added to an existing snake
+                if (snake.length > 0 && index > 0) {
+                    // Position it near the last segment
+                    const lastSegment = snake[snake.length - 1];
+                    snake.push({
+                        element: segment,
+                        x: lastSegment.x,
+                        y: lastSegment.y
+                    });
+                } else {
+                    // Initial creation
                     snake.push({
                         element: segment,
                         x: snakeConfig.initialX,
@@ -164,7 +263,6 @@
                 
                 const eyes = snake[0].element.querySelectorAll('.snake-eye');
                 eyes.forEach(eye => {
-                    const isLeft = eye.classList.contains('left');
                     eye.style.transform = `translate(${eyeShiftX}px, ${eyeShiftY}px)`;
                 });
                 
@@ -210,13 +308,125 @@
                 requestAnimationFrame(updateSnake);
             }
             
+            // Add segments to the snake
+            function addSegments(count) {
+                if (snake.length >= snakeConfig.maxSegments) return;
+                
+                const container = document.querySelector('.snake-container');
+                for (let i = 0; i < count; i++) {
+                    if (snake.length < snakeConfig.maxSegments) {
+                        createSegment(snake.length, container);
+                    }
+                }
+                
+                // Update segment colors and sizes
+                updateSegmentAppearance();
+            }
+            
+            // Remove segments from the snake
+            function removeSegments(count) {
+                if (snake.length <= snakeConfig.minSegments) return;
+                
+                for (let i = 0; i < count; i++) {
+                    if (snake.length > snakeConfig.minSegments) {
+                        const segment = snake.pop();
+                        segment.element.remove();
+                    }
+                }
+            }
+            
+            // Update the appearance of all segments (for color changes)
+            function updateSegmentAppearance() {
+                for (let i = 1; i < snake.length; i++) {
+                    // Update scale and opacity
+                    const scale = 1 - (i / (snake.length * 1.5));
+                    const opacity = 1 - (i / (snake.length * 1.2));
+                    snake[i].element.style.transform = `translate(-50%, -50%) scale(${scale})`;
+                    snake[i].element.style.opacity = opacity;
+                    
+                    // Update color if not in rainbow mode
+                    if (!isRainbowMode) {
+                        const greenValue = Math.min(50 + (i * 8), 200);
+                        snake[i].element.style.backgroundColor = `rgb(0, ${greenValue}, 0)`;
+                    }
+                    
+                    // Update segment index for rainbow animation
+                    snake[i].element.style.setProperty('--segment-index', i);
+                }
+            }
+            
+            // Event handlers for buttons
+            document.getElementById('toggleNightMode').addEventListener('click', function() {
+                document.body.classList.toggle('night-mode');
+            });
+            
+            document.getElementById('toggleRainbow').addEventListener('click', function() {
+                document.body.classList.toggle('rainbow-mode');
+                isRainbowMode = document.body.classList.contains('rainbow-mode');
+                
+                // Update button text
+                this.textContent = isRainbowMode ? 'Disable Rainbow Mode' : 'Enable Rainbow Mode';
+                
+                // Update segment colors
+                if (!isRainbowMode) {
+                    updateSegmentAppearance();
+                }
+            });
+            
+            document.getElementById('increaseLength').addEventListener('click', function() {
+                addSegments(5);
+            });
+            
+            document.getElementById('decreaseLength').addEventListener('click', function() {
+                removeSegments(5);
+            });
+            
             // Track mouse position
             document.addEventListener('mousemove', function(e) {
                 mouseX = e.clientX;
                 mouseY = e.clientY;
             });
             
+            // Save preferences to localStorage
+            function savePreferences() {
+                const preferences = {
+                    nightMode: document.body.classList.contains('night-mode'),
+                    rainbowMode: isRainbowMode,
+                    segmentCount: snake.length
+                };
+                localStorage.setItem('snakePreferences', JSON.stringify(preferences));
+            }
+            
+            // Load preferences from localStorage
+            function loadPreferences() {
+                const savedPrefs = localStorage.getItem('snakePreferences');
+                if (savedPrefs) {
+                    const preferences = JSON.parse(savedPrefs);
+                    
+                    // Apply night mode
+                    if (preferences.nightMode) {
+                        document.body.classList.add('night-mode');
+                    }
+                    
+                    // Apply rainbow mode
+                    if (preferences.rainbowMode) {
+                        document.body.classList.add('rainbow-mode');
+                        isRainbowMode = true;
+                        document.getElementById('toggleRainbow').textContent = 'Disable Rainbow Mode';
+                    }
+                    
+                    // Apply segment count
+                    if (preferences.segmentCount && preferences.segmentCount !== snakeConfig.segmentCount) {
+                        snakeConfig.segmentCount = preferences.segmentCount;
+                    }
+                }
+            }
+            
+            // Save preferences when leaving the page
+            window.addEventListener('beforeunload', savePreferences);
+            
             // Initialize
+            loadPreferences();
             createSnake();
             updateSnake();
             
