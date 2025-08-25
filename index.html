@@ -1,4 +1,234 @@
-<html>
-<h1> Hello World </h1>
-  <h2> This is my second line</h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Follows Cursor</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+            cursor: none; /* Hide the default cursor */
+        }
+        
+        .snake-segment {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: green;
+            transform: translate(-50%, -50%);
+            transition: box-shadow 0.3s ease;
+        }
+        
+        .snake-head {
+            background-color: darkgreen;
+            z-index: 10;
+            width: 25px;
+            height: 25px;
+        }
+        
+        .snake-eye {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background-color: white;
+            border-radius: 50%;
+            top: 6px;
+        }
+        
+        .snake-eye.left {
+            left: 5px;
+        }
+        
+        .snake-eye.right {
+            left: 14px;
+        }
+        
+        .instructions {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 100;
+        }
+        
+        .title {
+            position: fixed;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div class="title">Snake Cursor Follower</div>
+    <div class="instructions">
+        Move your mouse around and watch the snake follow!
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Snake configuration
+            const snakeConfig = {
+                segmentCount: 20,        // Number of segments in the snake
+                followSpeed: 0.1,        // How quickly the snake follows (0-1, lower is slower)
+                segmentSpacing: 15,      // Distance between segments
+                initialX: window.innerWidth / 2,
+                initialY: window.innerHeight / 2
+            };
+            
+            // Snake state
+            const snake = [];
+            let mouseX = snakeConfig.initialX;
+            let mouseY = snakeConfig.initialY;
+            
+            // Create snake segments
+            function createSnake() {
+                // Create snake container
+                const snakeContainer = document.createElement('div');
+                snakeContainer.className = 'snake-container';
+                document.body.appendChild(snakeContainer);
+                
+                // Create each segment
+                for (let i = 0; i < snakeConfig.segmentCount; i++) {
+                    const segment = document.createElement('div');
+                    segment.className = 'snake-segment';
+                    
+                    // The first segment is the head
+                    if (i === 0) {
+                        segment.classList.add('snake-head');
+                        
+                        // Add eyes to the head
+                        const leftEye = document.createElement('div');
+                        leftEye.className = 'snake-eye left';
+                        segment.appendChild(leftEye);
+                        
+                        const rightEye = document.createElement('div');
+                        rightEye.className = 'snake-eye right';
+                        segment.appendChild(rightEye);
+                    } else {
+                        // Make segments smaller as they go toward the tail
+                        const scale = 1 - (i / (snakeConfig.segmentCount * 1.5));
+                        segment.style.transform = `translate(-50%, -50%) scale(${scale})`;
+                        segment.style.opacity = 1 - (i / (snakeConfig.segmentCount * 1.2));
+                        
+                        // Color gradient from green to lighter green
+                        const greenValue = Math.min(50 + (i * 8), 200);
+                        segment.style.backgroundColor = `rgb(0, ${greenValue}, 0)`;
+                    }
+                    
+                    // Position segment at the center initially
+                    segment.style.left = `${snakeConfig.initialX}px`;
+                    segment.style.top = `${snakeConfig.initialY}px`;
+                    
+                    // Add to DOM and snake array
+                    snakeContainer.appendChild(segment);
+                    snake.push({
+                        element: segment,
+                        x: snakeConfig.initialX,
+                        y: snakeConfig.initialY
+                    });
+                }
+            }
+            
+            // Update snake position
+            function updateSnake() {
+                // Update head position - follows mouse with easing
+                snake[0].x += (mouseX - snake[0].x) * snakeConfig.followSpeed;
+                snake[0].y += (mouseY - snake[0].y) * snakeConfig.followSpeed;
+                
+                // Update head element position
+                snake[0].element.style.left = `${snake[0].x}px`;
+                snake[0].element.style.top = `${snake[0].y}px`;
+                
+                // Calculate direction for eye movement
+                const dx = mouseX - snake[0].x;
+                const dy = mouseY - snake[0].y;
+                const angle = Math.atan2(dy, dx);
+                
+                // Adjust eye positions based on direction
+                const eyeShiftX = Math.cos(angle) * 3;
+                const eyeShiftY = Math.sin(angle) * 3;
+                
+                const eyes = snake[0].element.querySelectorAll('.snake-eye');
+                eyes.forEach(eye => {
+                    const isLeft = eye.classList.contains('left');
+                    eye.style.transform = `translate(${eyeShiftX}px, ${eyeShiftY}px)`;
+                });
+                
+                // Update body segments - each follows the segment in front of it
+                for (let i = 1; i < snake.length; i++) {
+                    // Calculate target position based on the segment ahead
+                    const targetX = snake[i-1].x;
+                    const targetY = snake[i-1].y;
+                    
+                    // Calculate direction vector
+                    const dx = targetX - snake[i].x;
+                    const dy = targetY - snake[i].y;
+                    
+                    // Calculate distance
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // If segment is too far from the one ahead, move it closer
+                    if (distance > snakeConfig.segmentSpacing) {
+                        // Normalize direction vector
+                        const normalizedDx = dx / distance;
+                        const normalizedDy = dy / distance;
+                        
+                        // Calculate new position
+                        const moveDistance = distance - snakeConfig.segmentSpacing;
+                        snake[i].x += normalizedDx * moveDistance * snakeConfig.followSpeed * 2;
+                        snake[i].y += normalizedDy * moveDistance * snakeConfig.followSpeed * 2;
+                    }
+                    
+                    // Update segment element position
+                    snake[i].element.style.left = `${snake[i].x}px`;
+                    snake[i].element.style.top = `${snake[i].y}px`;
+                }
+                
+                // Add subtle shadow effect based on speed
+                const headSpeed = Math.sqrt(
+                    Math.pow(snake[0].x - snake[1].x, 2) + 
+                    Math.pow(snake[0].y - snake[1].y, 2)
+                );
+                
+                const shadowIntensity = Math.min(headSpeed / 5, 15);
+                snake[0].element.style.boxShadow = `0 0 ${shadowIntensity}px rgba(0, 100, 0, 0.7)`;
+                
+                requestAnimationFrame(updateSnake);
+            }
+            
+            // Track mouse position
+            document.addEventListener('mousemove', function(e) {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+            
+            // Initialize
+            createSnake();
+            updateSnake();
+            
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                // If mouse hasn't moved yet, center snake on resize
+                if (mouseX === snakeConfig.initialX && mouseY === snakeConfig.initialY) {
+                    mouseX = window.innerWidth / 2;
+                    mouseY = window.innerHeight / 2;
+                }
+            });
+        });
+    </script>
+</body>
 </html>
