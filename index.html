@@ -130,10 +130,99 @@
             animation: rainbow 10s linear infinite;
             animation-delay: calc(var(--segment-index) * -0.5s);
         }
+        .angry-snake-segment {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #b22222;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            border: 2px solid #800000;
+        }
+        .angry-snake-head {
+            background-color: #800000 !important;
+            width: 25px;
+            height: 25px;
+            z-index: 21;
+        }
+        .score {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #b22222;
+            background: rgba(255,255,255,0.7);
+            padding: 6px 16px;
+            border-radius: 8px;
+            z-index: 200;
+        }
+        .game-over {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: bold;
+            color: #b22222;
+            background: rgba(255,255,255,0.9);
+            padding: 30px 60px;
+            border-radius: 20px;
+            z-index: 999;
+            box-shadow: 0 0 40px #80000055;
+            display: none;
+        }
+        .restart-btn {
+            display: none;
+            position: fixed;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 22px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 32px;
+            z-index: 1000;
+            cursor: pointer;
+            box-shadow: 0 2px 12px #0003;
+        }
+        .leaderboard {
+            position: fixed;
+            top: 70px;
+            left: 20px;
+            background: rgba(255,255,255,0.85);
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-size: 16px;
+            color: #333;
+            z-index: 201;
+            min-width: 180px;
+            box-shadow: 0 2px 12px #0002;
+        }
+        .leaderboard-title {
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #b22222;
+        }
+        .leaderboard-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
     </style>
 </head>
 <body>
     <div class="title">Snake Cursor Follower</div>
+    <div class="score" id="scoreCounter">Score: 0</div>
+    <div class="leaderboard" id="leaderboard">
+        <div class="leaderboard-title">Leaderboard</div>
+        <ul class="leaderboard-list" id="leaderboardList"></ul>
+    </div>
+    <div class="game-over" id="gameOverScreen">Game Over!</div>
+    <button class="restart-btn" id="restartBtn">Restart</button>
     
     <div class="controls">
         <button class="btn" id="toggleNightMode">Toggle Night Mode</button>
@@ -166,6 +255,25 @@
             let mouseY = snakeConfig.initialY;
             let isRainbowMode = false;
             
+            // Angry snake config and state
+            const angrySnakeConfig = {
+                segmentCount: 10,
+                followSpeed: 0.09,
+                segmentSpacing: 15,
+                initialX: window.innerWidth / 4,
+                initialY: window.innerHeight / 4,
+                changeDirInterval: 1200 // ms
+            };
+            const angrySnake = [];
+            let angryTargetX = angrySnakeConfig.initialX;
+            let angryTargetY = angrySnakeConfig.initialY;
+            let angryDirTimer = null;
+
+            // Score
+            let score = 0;
+            let scoreTimer = null;
+            let gameOver = false;
+
             // Check if it's nighttime (between 6 PM and 6 AM)
             const currentHour = new Date().getHours();
             if (currentHour >= 18 || currentHour < 6) {
@@ -174,6 +282,8 @@
             
             // Create snake segments
             function createSnake() {
+                // Clear previous snake array
+                snake.length = 0;
                 // Create snake container
                 const snakeContainer = document.createElement('div');
                 snakeContainer.className = 'snake-container';
@@ -422,17 +532,191 @@
                 }
             }
             
+            // Create angry snake segments
+            function createAngrySnake() {
+                angrySnake.length = 0; // Clear previous angry snake
+                const angryContainer = document.createElement('div');
+                angryContainer.className = 'angry-snake-container';
+                document.body.appendChild(angryContainer);
+
+                for (let i = 0; i < angrySnakeConfig.segmentCount; i++) {
+                    const segment = document.createElement('div');
+                    segment.className = 'angry-snake-segment';
+                    if (i === 0) {
+                        segment.classList.add('angry-snake-head');
+                    }
+                    segment.style.left = `${angrySnakeConfig.initialX}px`;
+                    segment.style.top = `${angrySnakeConfig.initialY}px`;
+                    angryContainer.appendChild(segment);
+                    angrySnake.push({
+                        element: segment,
+                        x: angrySnakeConfig.initialX,
+                        y: angrySnakeConfig.initialY
+                    });
+                }
+            }
+
+            // Move angry snake randomly
+            function setRandomAngryTarget() {
+                angryTargetX = Math.random() * (window.innerWidth - 60) + 30;
+                angryTargetY = Math.random() * (window.innerHeight - 60) + 30;
+            }
+
+            function updateAngrySnake() {
+                if (gameOver || angrySnake.length === 0) return;
+
+                // Speed increases as score (time) increases, capped for sanity
+                const speed = 2.5 + Math.min(score / 10, 10); // pixels per frame
+                const dx = angryTargetX - angrySnake[0].x;
+                const dy = angryTargetY - angrySnake[0].y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > speed) {
+                    angrySnake[0].x += (dx / distance) * speed;
+                    angrySnake[0].y += (dy / distance) * speed;
+                } else {
+                    // Arrived at target, pick a new one
+                    angrySnake[0].x = angryTargetX;
+                    angrySnake[0].y = angryTargetY;
+                    setRandomAngryTarget();
+                }
+
+                angrySnake[0].element.style.left = `${angrySnake[0].x}px`;
+                angrySnake[0].element.style.top = `${angrySnake[0].y}px`;
+
+                // Body segments follow head
+                for (let i = 1; i < angrySnake.length; i++) {
+                    const targetX = angrySnake[i-1].x;
+                    const targetY = angrySnake[i-1].y;
+                    const dx = targetX - angrySnake[i].x;
+                    const dy = targetY - angrySnake[i].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const segmentSpeed = 0.25; // smaller value for smooth following
+                    if (distance > angrySnakeConfig.segmentSpacing) {
+                        angrySnake[i].x += (dx / distance) * segmentSpeed * (distance - angrySnakeConfig.segmentSpacing);
+                        angrySnake[i].y += (dy / distance) * segmentSpeed * (distance - angrySnakeConfig.segmentSpacing);
+                    }
+                    angrySnake[i].element.style.left = `${angrySnake[i].x}px`;
+                    angrySnake[i].element.style.top = `${angrySnake[i].y}px`;
+                }
+
+                requestAnimationFrame(updateAngrySnake);
+            }
+
+            // Check collision between angry snake head and our snake
+            function checkCollision() {
+                if (gameOver || angrySnake.length === 0) return;
+                const ax = angrySnake[0].x;
+                const ay = angrySnake[0].y;
+                for (let i = 0; i < snake.length; i++) {
+                    const sx = snake[i].x;
+                    const sy = snake[i].y;
+                    const dist = Math.sqrt((ax - sx) ** 2 + (ay - sy) ** 2);
+                    if (dist < 18) {
+                        triggerGameOver();
+                        break;
+                    }
+                }
+                if (!gameOver) requestAnimationFrame(checkCollision);
+            }
+
+            // Game over logic
+            function triggerGameOver() {
+                gameOver = true;
+                document.getElementById('gameOverScreen').style.display = 'block';
+                document.getElementById('restartBtn').style.display = 'block';
+                clearInterval(scoreTimer);
+                clearInterval(angryDirTimer);
+                addScoreToLeaderboard(score);
+                renderLeaderboard();
+            }
+
+            // Score logic
+            function startScoreCounter() {
+                score = 0;
+                document.getElementById('scoreCounter').textContent = `Score: ${score}`;
+                scoreTimer = setInterval(() => {
+                    if (!gameOver) {
+                        score++;
+                        document.getElementById('scoreCounter').textContent = `Score: ${score}`;
+                    }
+                }, 1000);
+            }
+
+            // Leaderboard logic
+            function getLeaderboard() {
+                const scores = JSON.parse(localStorage.getItem('snakeLeaderboard') || '[]');
+                return scores;
+            }
+            function saveLeaderboard(scores) {
+                localStorage.setItem('snakeLeaderboard', JSON.stringify(scores));
+            }
+            function addScoreToLeaderboard(score) {
+                const scores = getLeaderboard();
+                scores.push(score);
+                scores.sort((a, b) => b - a);
+                if (scores.length > 5) scores.length = 5;
+                saveLeaderboard(scores);
+            }
+            function renderLeaderboard() {
+                const scores = getLeaderboard();
+                const list = document.getElementById('leaderboardList');
+                list.innerHTML = '';
+                scores.forEach((score, idx) => {
+                    const li = document.createElement('li');
+                    li.textContent = `${idx + 1}. ${score}`;
+                    list.appendChild(li);
+                });
+            }
+
+            // Restart logic
+            document.getElementById('restartBtn').addEventListener('click', function() {
+                // Remove snakes
+                document.querySelectorAll('.snake-container, .angry-snake-container').forEach(e => e.remove());
+                snake.length = 0;
+                angrySnake.length = 0;
+                // Hide game over and restart button
+                document.getElementById('gameOverScreen').style.display = 'none';
+                document.getElementById('restartBtn').style.display = 'none';
+                // Reset score and game state
+                score = 0;
+                gameOver = false;
+                document.getElementById('scoreCounter').textContent = `Score: ${score}`;
+                // Recreate main snake
+                createSnake();
+                updateSnake();
+                startScoreCounter();
+                // Delay angry snake by 5 seconds
+                setTimeout(() => {
+                    createAngrySnake();
+                    setRandomAngryTarget();
+                    angryDirTimer = setInterval(setRandomAngryTarget, angrySnakeConfig.changeDirInterval);
+                    checkCollision();
+                    updateAngrySnake();
+                }, 5000);
+            });
+
             // Save preferences when leaving the page
             window.addEventListener('beforeunload', savePreferences);
-            
-            // Initialize
+
+            // Initialize main snake and game
             loadPreferences();
             createSnake();
+            startScoreCounter();
+            renderLeaderboard();
             updateSnake();
-            
+
+            // Initialize angry snake after 5 seconds
+            setTimeout(() => {
+                createAngrySnake();
+                setRandomAngryTarget();
+                angryDirTimer = setInterval(setRandomAngryTarget, angrySnakeConfig.changeDirInterval);
+                checkCollision();
+                updateAngrySnake();
+            }, 5000);
+
             // Handle window resize
             window.addEventListener('resize', function() {
-                // If mouse hasn't moved yet, center snake on resize
                 if (mouseX === snakeConfig.initialX && mouseY === snakeConfig.initialY) {
                     mouseX = window.innerWidth / 2;
                     mouseY = window.innerHeight / 2;
