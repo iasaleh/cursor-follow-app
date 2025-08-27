@@ -240,8 +240,8 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Snake configuration
             const snakeConfig = {
-                segmentCount: 20,
-                followSpeed: 0.1,
+                segmentCount: 5, // Start short
+                followSpeed: 0.2,
                 segmentSpacing: 15,
                 initialX: window.innerWidth / 2,
                 initialY: window.innerHeight / 2,
@@ -258,7 +258,7 @@
             // Angry snake config and state
             const angrySnakeConfig = {
                 segmentCount: 10,
-                followSpeed: 0.09,
+                followSpeed: 0.1,
                 segmentSpacing: 15,
                 initialX: window.innerWidth / 4,
                 initialY: window.innerHeight / 4,
@@ -282,72 +282,52 @@
             
             // Create snake segments
             function createSnake() {
-                // Clear previous snake array
                 snake.length = 0;
-                // Create snake container
+                document.querySelectorAll('.snake-container').forEach(e => e.remove());
                 const snakeContainer = document.createElement('div');
                 snakeContainer.className = 'snake-container';
                 document.body.appendChild(snakeContainer);
-                
-                // Create each segment
+
+                // Start all segments in a horizontal line to the left of the head
+                let startX = snakeConfig.initialX;
+                let startY = snakeConfig.initialY;
+
                 for (let i = 0; i < snakeConfig.segmentCount; i++) {
-                    createSegment(i, snakeContainer);
-                }
-            }
-            
-            // Create a single segment
-            function createSegment(index, container) {
-                const segment = document.createElement('div');
-                segment.className = 'snake-segment';
-                segment.style.setProperty('--segment-index', index);
-                
-                // The first segment is the head
-                if (index === 0) {
-                    segment.classList.add('snake-head');
-                    
-                    // Add eyes to the head
-                    const leftEye = document.createElement('div');
-                    leftEye.className = 'snake-eye left';
-                    segment.appendChild(leftEye);
-                    
-                    const rightEye = document.createElement('div');
-                    rightEye.className = 'snake-eye right';
-                    segment.appendChild(rightEye);
-                } else {
-                    // Make segments smaller as they go toward the tail
-                    const scale = 1 - (index / (snakeConfig.segmentCount * 1.5));
-                    segment.style.transform = `translate(-50%, -50%) scale(${scale})`;
-                    segment.style.opacity = 1 - (index / (snakeConfig.segmentCount * 1.2));
-                    
-                    // Color gradient from green to lighter green
-                    if (!isRainbowMode) {
-                        const greenValue = Math.min(50 + (index * 8), 200);
-                        segment.style.backgroundColor = `rgb(0, ${greenValue}, 0)`;
+                    const segment = document.createElement('div');
+                    segment.className = 'snake-segment';
+                    segment.style.setProperty('--segment-index', i);
+
+                    if (i === 0) {
+                        segment.classList.add('snake-head');
+                        const leftEye = document.createElement('div');
+                        leftEye.className = 'snake-eye left';
+                        segment.appendChild(leftEye);
+                        const rightEye = document.createElement('div');
+                        rightEye.className = 'snake-eye right';
+                        segment.appendChild(rightEye);
+                    } else {
+                        const scale = 1 - (i / (snakeConfig.segmentCount * 1.5));
+                        segment.style.transform = `translate(-50%, -50%) scale(${scale})`;
+                        segment.style.opacity = 1 - (i / (snakeConfig.segmentCount * 1.2));
+                        if (!isRainbowMode) {
+                            const greenValue = Math.min(50 + (i * 8), 200);
+                            segment.style.backgroundColor = `rgb(0, ${greenValue}, 0)`;
+                        }
                     }
-                }
-                
-                // Position segment at the center initially
-                segment.style.left = `${snakeConfig.initialX}px`;
-                segment.style.top = `${snakeConfig.initialY}px`;
-                
-                // Add to DOM and snake array
-                container.appendChild(segment);
-                
-                // If this is a new segment being added to an existing snake
-                if (snake.length > 0 && index > 0) {
-                    // Position it near the last segment
-                    const lastSegment = snake[snake.length - 1];
+
+                    // Each segment starts spaced to the left of the previous one
+                    const x = startX - i * snakeConfig.segmentSpacing;
+                    const y = startY;
+
+                    segment.style.left = `${x}px`;
+                    segment.style.top = `${y}px`;
+
+                    snakeContainer.appendChild(segment);
+
                     snake.push({
                         element: segment,
-                        x: lastSegment.x,
-                        y: lastSegment.y
-                    });
-                } else {
-                    // Initial creation
-                    snake.push({
-                        element: segment,
-                        x: snakeConfig.initialX,
-                        y: snakeConfig.initialY
+                        x: x,
+                        y: y
                     });
                 }
             }
@@ -541,22 +521,13 @@
                 const savedPrefs = localStorage.getItem('snakePreferences');
                 if (savedPrefs) {
                     const preferences = JSON.parse(savedPrefs);
-                    
-                    // Apply night mode
                     if (preferences.nightMode) {
                         document.body.classList.add('night-mode');
                     }
-                    
-                    // Apply rainbow mode
                     if (preferences.rainbowMode) {
                         document.body.classList.add('rainbow-mode');
                         isRainbowMode = true;
                         document.getElementById('toggleRainbow').textContent = 'Disable Rainbow Mode';
-                    }
-                    
-                    // Apply segment count
-                    if (preferences.segmentCount && preferences.segmentCount !== snakeConfig.segmentCount) {
-                        snakeConfig.segmentCount = preferences.segmentCount;
                     }
                 }
             }
@@ -729,6 +700,7 @@
             window.addEventListener('beforeunload', savePreferences);
 
             // Initialize main snake and game
+            localStorage.removeItem('snakePreferences');
             loadPreferences();
             createSnake();
             startScoreCounter();
