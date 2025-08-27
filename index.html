@@ -491,12 +491,41 @@
                 removeSegments(5);
             });
             
-            // Track mouse position
-            document.addEventListener('mousemove', function(e) {
-                mouseX = e.clientX;
-                mouseY = e.clientY;
-            });
-            
+            // Detect mobile/tablet
+            function isMobileOrTablet() {
+                return (
+                    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                    (navigator.maxTouchPoints && navigator.maxTouchPoints > 1)
+                );
+            }
+
+            if (isMobileOrTablet()) {
+                document.querySelector('.instructions').innerHTML =
+                    "Tilt your device to move the snake!<br>Use the buttons to customize your snake.";
+
+                mouseX = window.innerWidth / 2;
+                mouseY = window.innerHeight / 2;
+
+                window.addEventListener('deviceorientation', function(event) {
+                    let gamma = event.gamma;
+                    let beta = event.beta;
+
+                    gamma = Math.max(-45, Math.min(45, gamma));
+                    beta = Math.max(-45, Math.min(45, beta));
+
+                    mouseX = window.innerWidth / 2 + (gamma / 45) * (window.innerWidth / 2 - 40);
+                    mouseY = window.innerHeight / 2 + (beta / 45) * (window.innerHeight / 2 - 40);
+                });
+            } else {
+                document.querySelector('.instructions').innerHTML =
+                    "Move your mouse around and watch the snake follow!<br>Use the buttons to customize your snake.";
+
+                document.addEventListener('mousemove', function(e) {
+                    mouseX = e.clientX;
+                    mouseY = e.clientY;
+                });
+            }
+
             // Save preferences to localStorage
             function savePreferences() {
                 const preferences = {
@@ -714,14 +743,6 @@
                 checkCollision();
                 updateAngrySnake();
             }, 5000);
-
-            // Handle window resize
-            window.addEventListener('resize', function() {
-                if (mouseX === snakeConfig.initialX && mouseY === snakeConfig.initialY) {
-                    mouseX = window.innerWidth / 2;
-                    mouseY = window.innerHeight / 2;
-                }
-            });
         });
     </script>
 </body>
