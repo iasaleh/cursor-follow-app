@@ -332,6 +332,42 @@
                 }
             }
             
+            // Add this function to your JavaScript code
+        function createSegment(index, container) {
+            const segment = document.createElement('div');
+            segment.className = 'snake-segment';
+            segment.style.setProperty('--segment-index', index);
+            
+            // Get position from last segment
+            const lastSegment = snake[snake.length - 1];
+            const x = lastSegment.x;
+            const y = lastSegment.y;
+            
+            // Set initial position
+            segment.style.left = `${x}px`;
+            segment.style.top = `${y}px`;
+            
+            // Apply styling
+            const scale = 1 - (index / (snake.length * 1.5));
+            segment.style.transform = `translate(-50%, -50%) scale(${scale})`;
+            segment.style.opacity = 1 - (index / (snake.length * 1.2));
+            
+            if (!isRainbowMode) {
+                const greenValue = Math.min(50 + (index * 8), 200);
+                segment.style.backgroundColor = `rgb(0, ${greenValue}, 0)`;
+            }
+    
+    // Add to DOM and snake array
+    container.appendChild(segment);
+    snake.push({
+        element: segment,
+        x: x,
+        y: y
+    });
+}
+
+
+
             // Update snake position
             function updateSnake() {
                 // Update head position - follows mouse with easing
